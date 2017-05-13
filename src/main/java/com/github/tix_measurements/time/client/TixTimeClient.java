@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.KeyPair;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -47,6 +48,7 @@ public class TixTimeClient {
     public static final String FILE_EXTENSION;
 
     private static boolean longPacketReceived;
+    private static Path tempFile;
 
 	static {
 		WORKER_THREADS = 1;
@@ -90,7 +92,7 @@ public class TixTimeClient {
 			InetSocketAddress clientAddress = getClientAddress(clientPort);
 			logger.info("My Address: {}:{}", clientAddress.getAddress(), clientAddress.getPort());
 
-            final Path tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
+            tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
             tempFile.toFile().deleteOnExit();
 
 			Bootstrap b = new Bootstrap();
@@ -112,7 +114,7 @@ public class TixTimeClient {
 			logger.info("Binding into port {}", clientAddress.getPort());
 			Channel channel = b.bind(clientAddress).sync().channel();
 
-			writeMessages(0,1000,clientAddress, serverAddress, channel);
+			writePackets(0,1000,clientAddress, serverAddress, channel, tempFile);
 
 			ChannelFuture future = channel.closeFuture().await();
 			if (!future.isSuccess()) {
@@ -134,13 +136,14 @@ public class TixTimeClient {
 		}
 	}
 
-	private void writeMessages(final int delay, final int period, final InetSocketAddress clientAddress, final InetSocketAddress serverAddress, final Channel channel){
+	private void writePackets(final int delay, final int period, final InetSocketAddress clientAddress, final InetSocketAddress serverAddress, final Channel channel, final Path tempFile){
 		timer.scheduleAtFixedRate(new TimerTask() {
             int i = 0;
             TixPacket shortPacket;
             TixPacket longPacketWithData;
-            byte[] lastDataSent;
+            byte[] mostRecentData;
             byte[] signature;
+            boolean longPacketReceived = false;
 
 			@Override
 			public void run() {
@@ -151,24 +154,34 @@ public class TixTimeClient {
 
                 if( i == 60 ){
                     // send long packet once every minute, after short packet
-                    signature = TixCoreUtils.sign("message".getBytes(),keyPair);
-                    longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), 11, 1, "mac".getBytes(), "message".getBytes(), signature);
-                    lastDataSent = "message".getBytes();
+                    try {
+                        mostRecentData = Files.readAllBytes(tempFile);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    signature = TixCoreUtils.sign(mostRecentData,keyPair);
+                    longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), 11, 1, "mac".getBytes(), mostRecentData, signature);
                     channel.writeAndFlush(longPacketWithData);
                     i = 0;
+                    try {
+                        byte[] emptyByteArray = new byte[0];
+                        Files.write(tempFile,emptyByteArray, StandardOpenOption.TRUNCATE_EXISTING);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     longPacketReceived = false;
                 } else if ( i < LONG_PACKET_MAX_RETRIES ){
                     // resend long packet if needed, a limited number of times
                     if(longPacketReceived){
-                        lastDataSent = null;
+                        mostRecentData = null;
                         signature = null;
                     } else {
-                        longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), 11, 1, "mac".getBytes(), lastDataSent, signature);
+                        longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), 11, 1, "mac".getBytes(), mostRecentData, signature);
                         channel.writeAndFlush(longPacketWithData);
                     }
                 } else if ( i == LONG_PACKET_MAX_RETRIES ){
                     // long packet could not be sent, discard temporary copy
-                    lastDataSent = null;
+                    mostRecentData = null;
                     signature = null;
                 }
 				i++;
@@ -181,8 +194,12 @@ public class TixTimeClient {
 		return new InetSocketAddress(InetAddress.getLocalHost(), clientPort);
 	}
 
-	public static void confirmLongPacketReceived(){
-        longPacketReceived = true;
+	public static void setLongPacketReceived(boolean value){
+        longPacketReceived = value;
+    }
+
+    public static Path getTempFile(){
+	    return tempFile;
     }
 
 }

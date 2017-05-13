@@ -22,6 +22,7 @@ import java.time.LocalTime;
 
 import static com.github.tix_measurements.time.client.TixTimeClient.FILE_EXTENSION;
 import static com.github.tix_measurements.time.client.TixTimeClient.FILE_NAME;
+import static com.github.tix_measurements.time.client.TixTimeClient.getTempFile;
 
 public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
 
@@ -56,7 +57,7 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
         try {
         	if(packet.getType() == TixPacketType.LONG){
 
-                TixTimeClient.confirmLongPacketReceived();
+                TixTimeClient.setLongPacketReceived(true);
 
 			} else if(packet.getFinalTimestamp() != 0){
 
@@ -93,8 +94,7 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
 
 				outputStream.write("\r\n".getBytes());
 
-				final Path tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
-				Files.write(tempFile, outputStream.toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE);
+				Files.write(getTempFile(), outputStream.toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE, StandardOpenOption.SYNC);
 			}
 
         } catch (IOException e) {
