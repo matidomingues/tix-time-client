@@ -1,5 +1,6 @@
 package com.github.tix_measurements.time.client.handler;
 
+import com.github.tix_measurements.time.client.TixTimeClient;
 import com.github.tix_measurements.time.core.data.TixDataPacket;
 import com.github.tix_measurements.time.core.data.TixPacket;
 import com.github.tix_measurements.time.core.data.TixPacketType;
@@ -53,19 +54,22 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
 
 	private void persistTixPacket(final TixPacket packet){
         try {
-			final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            if(packet.getFinalTimestamp() != 0){
+        	if(packet.getType() == TixPacketType.LONG){
 
-				final ByteBuffer charBuffer = ByteBuffer.allocate(Character.BYTES);
+                TixTimeClient.confirmLongPacketReceived();
+
+			} else if(packet.getFinalTimestamp() != 0){
+
+				final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 				final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
 				final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
 
-				final long unixTime = System.currentTimeMillis() / 1000L; // seconds passed since unix epoch
+				final long unixTime = System.currentTimeMillis() / 1000L; // seconds passed since UNIX epoch
 				outputStream.write(longBuffer.putLong(unixTime).array());
 
 				outputStream.write(TixDataPacket.DATA_DELIMITER.getBytes());
 
-				outputStream.write(packet.getType() == TixPacketType.LONG ? charBuffer.putChar('L').array() : charBuffer.putChar('S').array());
+				outputStream.write(packet.getType() == TixPacketType.LONG ? (byte)'L' : (byte)'S'); //char to byte cast should be OK for ASCII chars
 
 				outputStream.write(TixDataPacket.DATA_DELIMITER.getBytes());
 
