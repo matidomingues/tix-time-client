@@ -32,6 +32,7 @@ import java.security.KeyPair;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executors;
+import java.util.prefs.Preferences;
 
 public class TixTimeClient {
 
@@ -44,6 +45,7 @@ public class TixTimeClient {
     public static final InetSocketAddress DEFAULT_SERVER_ADDRESS;
     public static final int LONG_PACKET_MAX_RETRIES; /* how many times will payload with measurement data be sent after every minute */
 
+    public static String PREFERENCES_NODE;
     public static final String FILE_NAME; /* file used to persist incoming message data */
     public static final String FILE_EXTENSION;
 
@@ -62,6 +64,7 @@ public class TixTimeClient {
         DEFAULT_SERVER_PORT = 4500;
         LONG_PACKET_MAX_RETRIES = 5;
 
+        PREFERENCES_NODE = "/com/tix/client";
         FILE_NAME = "tempfile";
         FILE_EXTENSION = ".tix";
 
@@ -103,6 +106,15 @@ public class TixTimeClient {
             logger.info("Setting up");
             InetSocketAddress clientAddress = getClientAddress(clientPort);
             logger.info("My Address: {}:{}", clientAddress.getAddress(), clientAddress.getPort());
+
+            final Preferences prefs = Preferences.userRoot().node(PREFERENCES_NODE);
+            final String username = prefs.get("username","test@test.com");
+            final String password = prefs.get("password","mypass");
+            final long userID = prefs.getLong("userID",11);
+            final long installationID = prefs.getLong("installationID",1);
+            final byte[] publicKey = prefs.getByteArray("publicKey","11".getBytes());
+            final byte[] privateKey = prefs.getByteArray("privateKey","11".getBytes());
+
 
             tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
             tempFile.toFile().deleteOnExit();
@@ -163,39 +175,41 @@ public class TixTimeClient {
                 channel.write(shortPacket);
                 channel.flush();
 
-                if (i == 60) {
-                    // send long packet once every minute, after short packet
-                    try {
-                        mostRecentData = Files.readAllBytes(tempFile);
-                    } catch (IOException e) {
-                        logger.fatal("Could not read data from temp file", e);
-                        logger.catching(Level.FATAL, e);
-                    }
-                    signature = TixCoreUtils.sign(mostRecentData, KEY_PAIR);
-                    longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, PUBLIC_KEY, mostRecentData, signature);
-                    channel.writeAndFlush(longPacketWithData);
-                    i = 0;
-                    try {
-                        byte[] emptyByteArray = new byte[0];
-                        Files.write(tempFile, emptyByteArray, StandardOpenOption.TRUNCATE_EXISTING);
-                    } catch (IOException e) {
-                        logger.fatal("Could not empty contents of temp file", e);
-                        logger.catching(Level.FATAL, e);
-                    }
-                    longPacketReceived = false;
-                } else if (i < LONG_PACKET_MAX_RETRIES) {
-                    // resend long packet if needed, a limited number of times
-                    if (longPacketReceived) {
-                        mostRecentData = null;
-                        signature = null;
-                    } else {
+                if(mostRecentData != null ) {
+                    if (i == 60) {
+                        // send long packet once every minute, after short packet
+                        try {
+                            mostRecentData = Files.readAllBytes(tempFile);
+                        } catch (IOException e) {
+                            logger.fatal("Could not read data from temp file", e);
+                            logger.catching(Level.FATAL, e);
+                        }
+                        signature = TixCoreUtils.sign(mostRecentData, KEY_PAIR);
                         longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, PUBLIC_KEY, mostRecentData, signature);
                         channel.writeAndFlush(longPacketWithData);
+                        i = 0;
+                        try {
+                            byte[] emptyByteArray = new byte[0];
+                            Files.write(tempFile, emptyByteArray, StandardOpenOption.TRUNCATE_EXISTING);
+                        } catch (IOException e) {
+                            logger.fatal("Could not empty contents of temp file", e);
+                            logger.catching(Level.FATAL, e);
+                        }
+                        longPacketReceived = false;
+                    } else if (i < LONG_PACKET_MAX_RETRIES) {
+                        // resend long packet if needed, a limited number of times
+                        if (longPacketReceived) {
+                            mostRecentData = null;
+                            signature = null;
+                        } else {
+                            longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, PUBLIC_KEY, mostRecentData, signature);
+                            channel.writeAndFlush(longPacketWithData);
+                        }
+                    } else if (i == LONG_PACKET_MAX_RETRIES) {
+                        // long packet could not be sent, discard temporary copy
+                        mostRecentData = null;
+                        signature = null;
                     }
-                } else if (i == LONG_PACKET_MAX_RETRIES) {
-                    // long packet could not be sent, discard temporary copy
-                    mostRecentData = null;
-                    signature = null;
                 }
                 i++;
 
