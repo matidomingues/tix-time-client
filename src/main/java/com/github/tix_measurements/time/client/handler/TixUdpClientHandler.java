@@ -1,7 +1,6 @@
 package com.github.tix_measurements.time.client.handler;
 
 import com.github.tix_measurements.time.client.TixTimeClient;
-import com.github.tix_measurements.time.core.data.TixDataPacket;
 import com.github.tix_measurements.time.core.data.TixPacket;
 import com.github.tix_measurements.time.core.data.TixPacketType;
 import io.netty.channel.ChannelHandlerContext;
@@ -78,7 +77,8 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("exception caught", e);
+            logger.exit();
         }
 
     }

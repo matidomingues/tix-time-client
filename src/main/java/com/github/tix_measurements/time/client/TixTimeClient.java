@@ -17,6 +17,7 @@ import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,30 +37,28 @@ import java.util.prefs.Preferences;
 
 public class TixTimeClient {
 
-    private static final Logger logger = LogManager.getLogger();
-    private static final Timer timer = new Timer();
-
     public static final int WORKER_THREADS;
+    public static final String SERVER_IP;
     public static final int DEFAULT_CLIENT_PORT;
     public static final int DEFAULT_SERVER_PORT;
     public static final InetSocketAddress DEFAULT_SERVER_ADDRESS;
     public static final int LONG_PACKET_MAX_RETRIES; /* how many times will payload with measurement data be sent after every minute */
-
-    public static String PREFERENCES_NODE;
     public static final String FILE_NAME; /* file used to persist incoming message data */
     public static final String FILE_EXTENSION;
-
-    /* this will all be stored in local config */
+    private static final Logger logger = LogManager.getLogger();
+    private static final Timer timer = new Timer();
+    private static final String USERNAME;
+    private static final String PASSWORD;
     private static final long USER_ID;
     private static final long INSTALLATION_ID;
     private static final KeyPair KEY_PAIR;
-    private static final byte[] PUBLIC_KEY;
-
-    private static boolean longPacketReceived = false;
+    public static String PREFERENCES_NODE;
     private static Path tempFile;
+    private static boolean longPacketReceived = false;
 
     static {
         WORKER_THREADS = 1;
+        SERVER_IP = "200.10.202.29";
         DEFAULT_CLIENT_PORT = 4501;
         DEFAULT_SERVER_PORT = 4500;
         LONG_PACKET_MAX_RETRIES = 5;
@@ -68,21 +67,21 @@ public class TixTimeClient {
         FILE_NAME = "tempfile";
         FILE_EXTENSION = ".tix";
 
-        USER_ID = 11;
-        INSTALLATION_ID = 1;
-        KEY_PAIR = TixCoreUtils.NEW_KEY_PAIR.get();
-        PUBLIC_KEY = KEY_PAIR.getPublic().getEncoded();
+        final Preferences prefs = Preferences.userRoot().node(PREFERENCES_NODE);
+        USERNAME = prefs.get("username", "test@test.com");
+        PASSWORD = prefs.get("password", "mypass");
+        USER_ID = prefs.getLong("userID", 11);
+        INSTALLATION_ID = prefs.getLong("installationID", 1);
+        final byte[] keyPairBytes = prefs.getByteArray("keyPair", SerializationUtils.serialize(TixCoreUtils.NEW_KEY_PAIR.get()));
+        KEY_PAIR = SerializationUtils.deserialize(keyPairBytes);
+
         try {
-            DEFAULT_SERVER_ADDRESS = new InetSocketAddress(InetAddress.getLocalHost(), DEFAULT_SERVER_PORT);
-        } catch (UnknownHostException e) {
+            DEFAULT_SERVER_ADDRESS = new InetSocketAddress(SERVER_IP, DEFAULT_SERVER_PORT);
+        } catch (Exception e) {
             logger.catching(e);
             logger.fatal("Could not initialize the default server address");
             throw new Error();
         }
-    }
-
-    public static void main(String[] args) {
-        new TixTimeClient(DEFAULT_SERVER_ADDRESS, DEFAULT_CLIENT_PORT);
     }
 
     private TixTimeClient(InetSocketAddress serverAddress, int clientPort) {
@@ -106,15 +105,6 @@ public class TixTimeClient {
             logger.info("Setting up");
             InetSocketAddress clientAddress = getClientAddress(clientPort);
             logger.info("My Address: {}:{}", clientAddress.getAddress(), clientAddress.getPort());
-
-            final Preferences prefs = Preferences.userRoot().node(PREFERENCES_NODE);
-            final String username = prefs.get("username","test@test.com");
-            final String password = prefs.get("password","mypass");
-            final long userID = prefs.getLong("userID",11);
-            final long installationID = prefs.getLong("installationID",1);
-            final byte[] publicKey = prefs.getByteArray("publicKey","11".getBytes());
-            final byte[] privateKey = prefs.getByteArray("privateKey","11".getBytes());
-
 
             tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
             tempFile.toFile().deleteOnExit();
@@ -160,6 +150,18 @@ public class TixTimeClient {
         }
     }
 
+    public static void main(String[] args) {
+        new TixTimeClient(DEFAULT_SERVER_ADDRESS, DEFAULT_CLIENT_PORT);
+    }
+
+    public static void setLongPacketReceived(boolean value) {
+        longPacketReceived = value;
+    }
+
+    public static Path getTempFile() {
+        return tempFile;
+    }
+
     private void writePackets(final int delay, final int period, final InetSocketAddress clientAddress, final InetSocketAddress serverAddress, final Channel channel, final Path tempFile) {
         timer.scheduleAtFixedRate(new TimerTask() {
             int i = 0;
@@ -172,44 +174,42 @@ public class TixTimeClient {
             public void run() {
                 // sending short message every second, no matter what
                 shortPacket = new TixPacket(clientAddress, serverAddress, TixPacketType.SHORT, TixCoreUtils.NANOS_OF_DAY.get());
-                channel.write(shortPacket);
-                channel.flush();
+                channel.writeAndFlush(shortPacket);
 
-                if(mostRecentData != null ) {
-                    if (i == 60) {
-                        // send long packet once every minute, after short packet
-                        try {
-                            mostRecentData = Files.readAllBytes(tempFile);
-                        } catch (IOException e) {
-                            logger.fatal("Could not read data from temp file", e);
-                            logger.catching(Level.FATAL, e);
-                        }
-                        signature = TixCoreUtils.sign(mostRecentData, KEY_PAIR);
-                        longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, PUBLIC_KEY, mostRecentData, signature);
-                        channel.writeAndFlush(longPacketWithData);
-                        i = 0;
-                        try {
-                            byte[] emptyByteArray = new byte[0];
-                            Files.write(tempFile, emptyByteArray, StandardOpenOption.TRUNCATE_EXISTING);
-                        } catch (IOException e) {
-                            logger.fatal("Could not empty contents of temp file", e);
-                            logger.catching(Level.FATAL, e);
-                        }
-                        longPacketReceived = false;
-                    } else if (i < LONG_PACKET_MAX_RETRIES) {
-                        // resend long packet if needed, a limited number of times
-                        if (longPacketReceived) {
-                            mostRecentData = null;
-                            signature = null;
-                        } else {
-                            longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, PUBLIC_KEY, mostRecentData, signature);
-                            channel.writeAndFlush(longPacketWithData);
-                        }
-                    } else if (i == LONG_PACKET_MAX_RETRIES) {
-                        // long packet could not be sent, discard temporary copy
+                if (i == 60) {
+                    // send long packet once every minute, after short packet
+                    try {
+                        mostRecentData = Files.readAllBytes(tempFile);
+                    } catch (IOException e) {
+                        logger.fatal("Could not read data from temp file", e);
+                        logger.catching(Level.FATAL, e);
+                    }
+                    signature = TixCoreUtils.sign(mostRecentData, KEY_PAIR);
+                    longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, KEY_PAIR.getPublic().getEncoded(), mostRecentData, signature);
+                    channel.writeAndFlush(longPacketWithData);
+                    try {
+                        byte[] emptyByteArray = new byte[0];
+                        Files.write(tempFile, emptyByteArray, StandardOpenOption.TRUNCATE_EXISTING);
+                    } catch (IOException e) {
+                        logger.fatal("Could not empty contents of temp file", e);
+                        logger.catching(Level.FATAL, e);
+                    }
+                    longPacketReceived = false;
+                } else if (i > 60 && i < (60 + LONG_PACKET_MAX_RETRIES)) {
+                    // resend long packet if needed, a limited number of times
+                    if (longPacketReceived) {
                         mostRecentData = null;
                         signature = null;
+                        i = 0;
+                    } else if (mostRecentData != null) {
+                        longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, KEY_PAIR.getPublic().getEncoded(), mostRecentData, signature);
+                        channel.writeAndFlush(longPacketWithData);
                     }
+                } else if (i == (60 + LONG_PACKET_MAX_RETRIES)) {
+                    // long packet could not be sent, discard temporary copy
+                    mostRecentData = null;
+                    signature = null;
+                    i = 0;
                 }
                 i++;
 
@@ -219,14 +219,6 @@ public class TixTimeClient {
 
     private InetSocketAddress getClientAddress(int clientPort) throws UnknownHostException {
         return new InetSocketAddress(InetAddress.getLocalHost(), clientPort);
-    }
-
-    public static void setLongPacketReceived(boolean value) {
-        longPacketReceived = value;
-    }
-
-    public static Path getTempFile() {
-        return tempFile;
     }
 
 }
