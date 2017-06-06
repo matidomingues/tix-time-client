@@ -60,7 +60,7 @@ public class TixTimeClient {
         WORKER_THREADS = 1;
         SERVER_IP = "200.10.202.29";
         DEFAULT_CLIENT_PORT = 4501;
-        DEFAULT_SERVER_PORT = 4500;
+        DEFAULT_SERVER_PORT = 25672;
         LONG_PACKET_MAX_RETRIES = 5;
 
         PREFERENCES_NODE = "/com/tix/client";
@@ -68,10 +68,10 @@ public class TixTimeClient {
         FILE_EXTENSION = ".tix";
 
         final Preferences prefs = Preferences.userRoot().node(PREFERENCES_NODE);
-        USERNAME = prefs.get("username", "test@test.com");
-        PASSWORD = prefs.get("password", "mypass");
-        USER_ID = prefs.getLong("userID", 11);
-        INSTALLATION_ID = prefs.getLong("installationID", 1);
+        USERNAME = prefs.get("username", "chavipc@gmail.com");
+        PASSWORD = prefs.get("password", "12345678");
+        USER_ID = prefs.getLong("userID", 6);
+        INSTALLATION_ID = prefs.getLong("installationID", 5);
         final byte[] keyPairBytes = prefs.getByteArray("keyPair", SerializationUtils.serialize(TixCoreUtils.NEW_KEY_PAIR.get()));
         KEY_PAIR = SerializationUtils.deserialize(keyPairBytes);
 
@@ -184,17 +184,21 @@ public class TixTimeClient {
                         logger.fatal("Could not read data from temp file", e);
                         logger.catching(Level.FATAL, e);
                     }
-                    signature = TixCoreUtils.sign(mostRecentData, KEY_PAIR);
-                    longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, KEY_PAIR.getPublic().getEncoded(), mostRecentData, signature);
-                    channel.writeAndFlush(longPacketWithData);
-                    try {
-                        byte[] emptyByteArray = new byte[0];
-                        Files.write(tempFile, emptyByteArray, StandardOpenOption.TRUNCATE_EXISTING);
-                    } catch (IOException e) {
-                        logger.fatal("Could not empty contents of temp file", e);
-                        logger.catching(Level.FATAL, e);
+                    if (mostRecentData == null) {
+                        logger.error("No measurements recorded in the last minute");
+                    } else {
+                        signature = TixCoreUtils.sign(mostRecentData, KEY_PAIR);
+                        longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, KEY_PAIR.getPublic().getEncoded(), mostRecentData, signature);
+                        channel.writeAndFlush(longPacketWithData);
+                        try {
+                            byte[] emptyByteArray = new byte[0];
+                            Files.write(tempFile, emptyByteArray, StandardOpenOption.TRUNCATE_EXISTING);
+                        } catch (IOException e) {
+                            logger.fatal("Could not empty contents of temp file", e);
+                            logger.catching(Level.FATAL, e);
+                        }
+                        longPacketReceived = false;
                     }
-                    longPacketReceived = false;
                 } else if (i > 60 && i < (60 + LONG_PACKET_MAX_RETRIES)) {
                     // resend long packet if needed, a limited number of times
                     if (longPacketReceived) {
