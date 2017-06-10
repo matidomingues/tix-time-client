@@ -19,6 +19,8 @@ ext {
     commonsLangVersion = "3.4"
     guavaVersion = "19.0"
     assertjVersion = "3.4.1"
+    httpComponentsVersion = "4.5.3"
+    orgJsonVersion = "20170516"
     log4jVersion = "2.5"
     junitVersion = "4.12"
     mockitoVersion = "1.9.5"
@@ -32,6 +34,9 @@ dependencies {
     compile group: 'org.apache.commons', name: 'commons-lang3', version: "${commonsLangVersion}"
     compile group: 'com.google.guava', name: 'guava', version: "${guavaVersion}"
     compile group: 'org.assertj', name: 'assertj-core', version: "${assertjVersion}"
+    compile group: 'org.apache.httpcomponents', name: 'httpclient', version: "${httpComponentsVersion}"
+    compile group: 'org.json', name: 'json', version: "${orgJsonVersion}"
+
     // Logging
     compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: "${log4jVersion}"
     compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: "${log4jVersion}"
