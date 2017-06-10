@@ -60,7 +60,7 @@ public class TixTimeClient {
         WORKER_THREADS = 1;
         SERVER_IP = "200.10.202.29";
         DEFAULT_CLIENT_PORT = 4501;
-        DEFAULT_SERVER_PORT = 25672;
+        DEFAULT_SERVER_PORT = 4500;
         LONG_PACKET_MAX_RETRIES = 5;
 
         PREFERENCES_NODE = "/com/tix/client";
@@ -180,6 +180,7 @@ public class TixTimeClient {
                     // send long packet once every minute, after short packet
                     try {
                         mostRecentData = Files.readAllBytes(tempFile);
+                        System.out.println(tempFile.toAbsolutePath());
                     } catch (IOException e) {
                         logger.fatal("Could not read data from temp file", e);
                         logger.catching(Level.FATAL, e);

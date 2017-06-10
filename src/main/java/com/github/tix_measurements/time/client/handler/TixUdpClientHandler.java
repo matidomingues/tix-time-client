@@ -3,6 +3,7 @@ package com.github.tix_measurements.time.client.handler;
 import com.github.tix_measurements.time.client.TixTimeClient;
 import com.github.tix_measurements.time.core.data.TixPacket;
 import com.github.tix_measurements.time.core.data.TixPacketType;
+import com.github.tix_measurements.time.core.util.TixCoreUtils;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.logging.log4j.LogManager;
@@ -33,6 +34,9 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
         logger.entry(ctx, msg);
         TixPacket incomingMessage = (TixPacket) msg;
         logger.info("Received package {} from {}", incomingMessage, incomingMessage.getFrom());
+        if (incomingMessage.getReceptionTimestamp() > 0) {
+            incomingMessage.setFinalTimestamp(TixCoreUtils.NANOS_OF_DAY.get());
+        }
         persistTixPacket(incomingMessage);
         super.channelRead(ctx, msg);
         logger.exit();
@@ -52,26 +56,33 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
 
                 TixTimeClient.setLongPacketReceived(true);
 
-            } else if (packet.getFinalTimestamp() != 0) {
+            } else if (packet.getFinalTimestamp() > 0) {
 
                 final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
                 final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
 
                 final long unixTime = System.currentTimeMillis() / 1000L; // seconds passed since UNIX epoch
+
                 outputStream.write(longBuffer.putLong(unixTime).array());
+                longBuffer.clear();
 
                 outputStream.write(packet.getType() == TixPacketType.LONG ? (byte) 'L' : (byte) 'S'); //char to byte cast should be OK for ASCII chars
 
                 outputStream.write(intBuffer.putInt(packet.getType().getSize()).array());
+                intBuffer.clear();
 
                 outputStream.write(longBuffer.putLong(packet.getInitialTimestamp()).array());
+                longBuffer.clear();
 
                 outputStream.write(longBuffer.putLong(packet.getReceptionTimestamp()).array());
+                longBuffer.clear();
 
                 outputStream.write(longBuffer.putLong(packet.getSentTimestamp()).array());
+                longBuffer.clear();
 
                 outputStream.write(longBuffer.putLong(packet.getFinalTimestamp()).array());
+                longBuffer.clear();
 
                 Files.write(getTempFile(), outputStream.toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE, StandardOpenOption.SYNC);
             }
