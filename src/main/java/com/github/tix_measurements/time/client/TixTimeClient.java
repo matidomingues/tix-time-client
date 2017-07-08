@@ -94,7 +94,7 @@ public class TixTimeClient {
         }
     }
 
-    private TixTimeClient(InetSocketAddress serverAddress, int clientPort) {
+    public TixTimeClient(InetSocketAddress serverAddress, int clientPort) {
         logger.info("Starting Client");
         logger.info("Server Address: {}:{}", serverAddress.getHostName(), serverAddress.getPort());
 

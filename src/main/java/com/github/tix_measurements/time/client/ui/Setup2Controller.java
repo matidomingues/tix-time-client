@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyPair;
+import java.util.Base64;
 import java.util.prefs.Preferences;
 
 public class Setup2Controller {
@@ -60,7 +61,12 @@ public class Setup2Controller {
             if (userID != 0 && keyPair != null && token != null && installationInput != null) {
 
                 HttpPost request = new HttpPost("https://tix.innova-red.net/api/user/" + userID + "/installation");
-                String json = "{\"name\": \"" + installationInput + "\",\"publickey\": \"" + keyPair.getPublic().getEncoded() + "\"}";
+
+                byte[] pubBytes = Base64.getEncoder().encode(keyPair.getPublic().getEncoded());
+                String publicString = new String(pubBytes);
+                System.out.println(publicString);
+
+                String json = "{\"name\": \"" + installationInput + "\",\"publickey\": \"" + publicString + "\"}";
                 StringEntity params = new StringEntity(json, org.apache.http.entity.ContentType.APPLICATION_JSON);
                 request.setHeader("Content-Type", "application/json");
                 request.setHeader("Authorization", "JWT " + token);
@@ -80,6 +86,10 @@ public class Setup2Controller {
                     final int installationID = responseBodyJson.getInt("id");
                     prefs.putInt("installationID", installationID);
                     try {
+
+                        // Start main client
+                        //new TixTimeClient(TixTimeClient.DEFAULT_SERVER_ADDRESS,TixTimeClient.DEFAULT_CLIENT_PORT);
+
                         FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/setup3.fxml"));
                         Parent root = loader.load();
                         Setup3Controller setup3Controller = loader.getController();
