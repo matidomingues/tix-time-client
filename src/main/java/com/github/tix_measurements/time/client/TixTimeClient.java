@@ -43,17 +43,19 @@ public class TixTimeClient {
     public static final int DEFAULT_SERVER_PORT;
     public static final InetSocketAddress DEFAULT_SERVER_ADDRESS;
     public static final int LONG_PACKET_MAX_RETRIES; /* how many times will payload with measurement data be sent after every minute */
+
     public static final String FILE_NAME; /* file used to persist incoming message data */
     public static final String FILE_EXTENSION;
+    private static Path tempFile;
+
     private static final Logger logger = LogManager.getLogger();
     private static final Timer timer = new Timer();
-    private static final String USERNAME;
-    private static final String PASSWORD;
+
+    public static String PREFERENCES_NODE;
     private static final long USER_ID;
     private static final long INSTALLATION_ID;
     private static final KeyPair KEY_PAIR;
-    public static String PREFERENCES_NODE;
-    private static Path tempFile;
+
     private static boolean longPacketReceived = false;
 
     static {
@@ -68,11 +70,9 @@ public class TixTimeClient {
         FILE_EXTENSION = ".tix";
 
         final Preferences prefs = Preferences.userRoot().node(PREFERENCES_NODE);
-        USERNAME = prefs.get("username", "chavipc@gmail.com");
-        PASSWORD = prefs.get("password", "12345678");
-        USER_ID = prefs.getLong("userID", 6);
-        INSTALLATION_ID = prefs.getLong("installationID", 5);
-        final byte[] keyPairBytes = prefs.getByteArray("keyPair", SerializationUtils.serialize(TixCoreUtils.NEW_KEY_PAIR.get()));
+        USER_ID = prefs.getLong("userID", 0L);
+        INSTALLATION_ID = prefs.getLong("installationID", 0L);
+        final byte[] keyPairBytes = prefs.getByteArray("keyPair", null);
         KEY_PAIR = SerializationUtils.deserialize(keyPairBytes);
 
         try {

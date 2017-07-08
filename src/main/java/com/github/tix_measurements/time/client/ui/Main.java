@@ -26,6 +26,7 @@ public class Main extends Application {
      */
     @Override
     public void start(final Stage stage) throws Exception {
+
         // stores a reference to the aboutStage.
         this.aboutStage = stage;
         aboutStage.setTitle("Sobre TiX");
@@ -36,14 +37,14 @@ public class Main extends Application {
         // sets up the tray icon (using awt code run on the swing thread).
         javax.swing.SwingUtilities.invokeLater(this::addAppToTray);
 
-        Parent aboutParent = FXMLLoader.load(getClass().getResource("about.fxml"));
+        Parent aboutParent = FXMLLoader.load(getClass().getResource("/fxml/about.fxml"));
         Scene aboutScene = new Scene(aboutParent);
         aboutStage.setScene(aboutScene);
 
         prefStage = new Stage();
         prefStage.setTitle("Preferencias");
 
-        Parent prefParent = FXMLLoader.load(getClass().getResource("setup1.fxml"));
+        Parent prefParent = FXMLLoader.load(getClass().getResource("/fxml/setup1.fxml"));
         Scene prefScene = new Scene(prefParent);
         prefStage.setScene(prefScene);
 
@@ -136,6 +137,6 @@ public class Main extends Application {
     }
 
     public static void main(String[] args) throws IOException, java.awt.AWTException {
-        launch(args);
+        Main.launch(args);
     }
 }

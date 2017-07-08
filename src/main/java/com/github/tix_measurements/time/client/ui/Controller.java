@@ -1,5 +1,6 @@
 package com.github.tix_measurements.time.client.ui;
 
+import com.github.tix_measurements.time.core.util.TixCoreUtils;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -8,6 +9,7 @@ import javafx.scene.control.Hyperlink;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.text.Text;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
@@ -23,8 +25,8 @@ import java.awt.*;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.KeyPair;
 import java.util.prefs.Preferences;
-
 
 public class Controller {
 
@@ -94,7 +96,7 @@ public class Controller {
                     prefs.put("username", emailInput.trim());
                     prefs.put("password", passwordInput.trim());
                     try {
-                        Parent page = FXMLLoader.load(getClass().getResource("setup2.fxml"));
+                        Parent page = FXMLLoader.load(getClass().getResource("/fxml/setup2.fxml"));
                         connectButton.getScene().setRoot(page);
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -122,14 +124,15 @@ public class Controller {
                     .build();
 
             final int userID = prefs.getInt("userid", 0);
-            final byte[] publicKey = prefs.getByteArray("publicKey", "a".getBytes());
+            final byte[] keyPairBytes = prefs.getByteArray("keyPair", SerializationUtils.serialize(TixCoreUtils.NEW_KEY_PAIR.get()));
+            final KeyPair keyPair = SerializationUtils.deserialize(keyPairBytes);
             final String token = prefs.get("token", null);
             final String installationInput = installationName.getText();
 
-            if (userID != 0 && publicKey != null && token != null && installationInput != null) {
+            if (userID != 0 && keyPair != null && token != null && installationInput != null) {
 
                 HttpPost request = new HttpPost("https://tix.innova-red.net/api/user/" + userID + "/installation");
-                String json = "{\"name\": \"" + installationName + "\",\"publickey\": \"" + publicKey + "\"}";
+                String json = "{\"name\": \"" + installationInput + "\",\"publickey\": \"" + keyPair.getPublic().getEncoded() + "\"}";
                 StringEntity params = new StringEntity(json, org.apache.http.entity.ContentType.APPLICATION_JSON);
                 request.setHeader("Content-Type", "application/json");
                 request.setHeader("Authorization", "JWT " + token);
@@ -140,7 +143,7 @@ public class Controller {
                 final int responseStatusCode = response.getStatusLine().getStatusCode();
                 if (responseStatusCode == 401) {
                     // login details are incorrect
-//                    loginStatus.setText("Verifique los datos ingresados");
+                    loginStatus.setText("Verifique los datos ingresados");
                 } else if (responseStatusCode == 200) {
                     // login succeeded
                     String entity = EntityUtils.toString(response.getEntity());
@@ -150,13 +153,13 @@ public class Controller {
                     final int installationID = responseBodyJson.getInt("id");
                     prefs.putInt("installationID", installationID);
                     try {
-                        Parent page = FXMLLoader.load(getClass().getResource("setup3.fxml"));
+                        Parent page = FXMLLoader.load(getClass().getResource("/fxml/setup3.fxml"));
                         createInstallationButton.getScene().setRoot(page);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 } else {
-//                    loginStatus.setText("Falló la conexión con el servidor");
+                    loginStatus.setText("Falló la conexión con el servidor");
                 }
             }
         } catch (Exception ex) {
