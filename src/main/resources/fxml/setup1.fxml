@@ -6,7 +6,7 @@
 <?import javafx.scene.text.*?>
 <GridPane alignment="center" hgap="10" prefHeight="282.0" prefWidth="445.0" vgap="10"
           xmlns="http://javafx.com/javafx/8.0.60" xmlns:fx="http://javafx.com/fxml/1"
-          fx:controller="com.github.tix_measurements.time.client.ui.Controller">
+          fx:controller="com.github.tix_measurements.time.client.ui.Setup1Controller">
     <padding>
         <Insets bottom="10" left="25" right="25" top="25"/>
     </padding>
@@ -25,7 +25,7 @@
 
     <Label text="Contraseña" GridPane.rowIndex="4"/>
 
-    <PasswordField fx:id="password" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+    <PasswordField fx:id="password" onAction="#connect" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
     <Hyperlink fx:id="forgotPasswordLink" onAction="#help" text="¿Olvidó su contraseña?" GridPane.columnIndex="1"
                GridPane.rowIndex="5"/>
     <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Paso 1/2" GridPane.rowIndex="1"/>
@@ -42,7 +42,7 @@
             <Insets top="10.0"/>
         </GridPane.margin>
     </HBox>
-    <Text fx:id="loginStatus" fill="#ff0000" strokeType="OUTSIDE" strokeWidth="0.0" text=" " textAlignment="RIGHT"
+    <Text fx:id="status" fill="#ff0000" strokeType="OUTSIDE" strokeWidth="0.0" text=" " textAlignment="RIGHT"
           wrappingWidth="196.21875" GridPane.columnIndex="1" GridPane.rowIndex="2">
         <font>
             <Font name="System Bold" size="13.0"/>

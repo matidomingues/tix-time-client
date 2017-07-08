@@ -42,6 +42,8 @@ public class TixTimeClient {
     public static final int DEFAULT_CLIENT_PORT;
     public static final int DEFAULT_SERVER_PORT;
     public static final InetSocketAddress DEFAULT_SERVER_ADDRESS;
+
+    public static final int MAX_UDP_PACKET_SIZE;
     public static final int LONG_PACKET_MAX_RETRIES; /* how many times will payload with measurement data be sent after every minute */
 
     public static final String FILE_NAME; /* file used to persist incoming message data */
@@ -63,6 +65,8 @@ public class TixTimeClient {
         SERVER_IP = "200.10.202.29";
         DEFAULT_CLIENT_PORT = 4501;
         DEFAULT_SERVER_PORT = 4500;
+
+        MAX_UDP_PACKET_SIZE = 4096+1024;
         LONG_PACKET_MAX_RETRIES = 5;
 
         PREFERENCES_NODE = "/com/tix/client";
@@ -73,7 +77,13 @@ public class TixTimeClient {
         USER_ID = prefs.getLong("userID", 0L);
         INSTALLATION_ID = prefs.getLong("installationID", 0L);
         final byte[] keyPairBytes = prefs.getByteArray("keyPair", null);
-        KEY_PAIR = SerializationUtils.deserialize(keyPairBytes);
+        try{
+            KEY_PAIR = SerializationUtils.deserialize(keyPairBytes);
+        } catch (Exception e){
+            logger.catching(e);
+            logger.fatal("Could not read existing keyPair");
+            throw new Error();
+        }
 
         try {
             DEFAULT_SERVER_ADDRESS = new InetSocketAddress(SERVER_IP, DEFAULT_SERVER_PORT);
@@ -107,12 +117,15 @@ public class TixTimeClient {
             logger.info("My Address: {}:{}", clientAddress.getAddress(), clientAddress.getPort());
 
             tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
+            System.out.println(tempFile.toString());
             tempFile.toFile().deleteOnExit();
 
             Bootstrap b = new Bootstrap();
             b.group(workerGroup)
                     .channel(datagramChannelClass)
                     .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
+                    .option(ChannelOption.SO_RCVBUF, MAX_UDP_PACKET_SIZE)
+                    .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(MAX_UDP_PACKET_SIZE))
                     .handler(new ChannelInitializer<DatagramChannel>() {
                         @Override
                         protected void initChannel(DatagramChannel ch)
@@ -180,12 +193,12 @@ public class TixTimeClient {
                     // send long packet once every minute, after short packet
                     try {
                         mostRecentData = Files.readAllBytes(tempFile);
-                        System.out.println(tempFile.toAbsolutePath());
+                        System.out.println("Temp file path: "+tempFile.toAbsolutePath());
                     } catch (IOException e) {
                         logger.fatal("Could not read data from temp file", e);
                         logger.catching(Level.FATAL, e);
                     }
-                    if (mostRecentData == null) {
+                    if (mostRecentData == null || mostRecentData.length < 1) {
                         logger.error("No measurements recorded in the last minute");
                     } else {
                         signature = TixCoreUtils.sign(mostRecentData, KEY_PAIR);
@@ -206,7 +219,7 @@ public class TixTimeClient {
                         mostRecentData = null;
                         signature = null;
                         i = 0;
-                    } else if (mostRecentData != null) {
+                    } else if (mostRecentData != null && mostRecentData.length > 0) {
                         longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, KEY_PAIR.getPublic().getEncoded(), mostRecentData, signature);
                         channel.writeAndFlush(longPacketWithData);
                     }
