@@ -1,5 +1,6 @@
 package com.github.tix_measurements.time.client.ui;
 
+import com.github.tix_measurements.time.client.Main;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -23,7 +24,6 @@ import java.awt.*;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.prefs.Preferences;
 
 public class Setup1Controller {
 
@@ -40,7 +40,6 @@ public class Setup1Controller {
 
     @FXML
     private void connect() throws IOException, InterruptedException {
-        Preferences prefs = Preferences.userRoot().node("/com/tix/client");
         String emailInput = email.getText();
         String passwordInput = password.getText();
         if (emailInput.isEmpty() || passwordInput.isEmpty()) {
@@ -75,17 +74,16 @@ public class Setup1Controller {
                         JSONObject responseBodyJson = new JSONObject(entity);
 
                         final int userID = responseBodyJson.getInt("id");
-                        prefs.putInt("userID", userID);
+                        Main.preferences.putInt("userID", userID);
                         final String token = responseBodyJson.getString("token");
-                        prefs.put("token", token);
+                        Main.preferences.put("token", token);
                     } catch (Exception e) {
                         status.setText("Verifique los datos ingresados");
                         System.out.println("API responded with unexpected format " + e);
                     }
 
                     // login succeeded
-                    prefs.put("username", emailInput.trim());
-                    prefs.put("password", passwordInput.trim());
+                    Main.preferences.put("username", emailInput.trim());
                     try {
                         Parent page = FXMLLoader.load(getClass().getResource("/fxml/setup2.fxml"));
                         connectButton.getScene().setRoot(page);

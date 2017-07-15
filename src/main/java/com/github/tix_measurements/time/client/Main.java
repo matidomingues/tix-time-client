@@ -1,7 +1,9 @@
-package com.github.tix_measurements.time.client.ui;
+package com.github.tix_measurements.time.client;
 
+import com.github.tix_measurements.time.client.reporting.Reporter;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.concurrent.Worker;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -15,18 +17,41 @@ import java.util.prefs.Preferences;
 
 public class Main extends Application {
 
+    public static Reporter reporter;
+    public static Preferences preferences = Preferences.userRoot().node("/com/tix/client9");
+
     // application stage is stored so that it can be shown and hidden based on system tray icon operations.
     private Stage aboutStage;
     private Stage prefStage;
 
     /**
      * Sets up the javafx application.
-     * A tray icon is setup for the icon, but the main aboutStage remains invisible until the user
-     * interacts with the tray icon.
+     * The tray icon will appear, but the preferences window will only be shown
+     * if there is no preferences stored in the user's computer.
      */
     @Override
-    public void start(final Stage stage) throws Exception {
+    public void start(final Stage stage) throws IOException {
+        setUIProperties(stage);
 
+        if (!installationExists()) {
+            showSetupStage();
+        } else {
+            startReporting();
+            showLoggedInStage();
+        }
+    }
+
+    public static void startReporting() {
+        reporter = new Reporter();
+        if (reporter.getState() != Worker.State.RUNNING) {
+            reporter.start();
+        }
+    }
+
+    /**
+     * Sets up the main UI components, including the tray icon.
+     */
+    private void setUIProperties(final Stage stage) throws IOException {
         // stores a reference to the aboutStage.
         this.aboutStage = stage;
         aboutStage.setTitle("Sobre TiX");
@@ -47,18 +72,24 @@ public class Main extends Application {
         Parent prefParent = FXMLLoader.load(getClass().getResource("/fxml/setup1.fxml"));
         Scene prefScene = new Scene(prefParent);
         prefStage.setScene(prefScene);
+    }
 
-        Preferences prefs = Preferences.userNodeForPackage(Main.class);
-        String username = null;
+    /**
+     * Checks whether user has already set up the application before.
+     */
+    private boolean installationExists() {
+
+        int userID = 0;
+        byte[] keyPair = null;
+        int installationID = 0;
         try {
-            username = prefs.get("username", null);
+            userID = preferences.getInt("userID", 0);
+            keyPair = preferences.getByteArray("keyPair", null);
+            installationID = preferences.getInt("installationID", 0);
         } catch (Exception e) {
             e.printStackTrace();
         }
-        if (username == null) {
-            prefStage.show();
-            prefStage.toFront();
-        }
+        return (userID > 0) && (keyPair != null) && (installationID > 0);
     }
 
     /**
@@ -73,6 +104,7 @@ public class Main extends Application {
             if (!java.awt.SystemTray.isSupported()) {
                 System.out.println("No system tray support, application exiting.");
                 Platform.exit();
+                System.exit(0);
             }
 
             // set up a system tray icon.
@@ -91,7 +123,7 @@ public class Main extends Application {
             openItem.addActionListener(event -> Platform.runLater(this::showAboutStage));
 
             java.awt.MenuItem openPrefs = new java.awt.MenuItem("Preferencias");
-            openPrefs.addActionListener(event -> Platform.runLater(this::showPrefStage));
+            openPrefs.addActionListener(event -> Platform.runLater(this::showSetupStage));
 
             // to really exit the application, the user must go to the system tray icon
             // and select the exit option, this will shutdown JavaFX and remove the
@@ -100,6 +132,7 @@ public class Main extends Application {
             exitItem.addActionListener(event -> {
                 Platform.exit();
                 tray.remove(trayIcon);
+                System.exit(0);
             });
 
             // setup the popup menu for the application.
@@ -120,7 +153,7 @@ public class Main extends Application {
     }
 
     /**
-     * Shows the application aboutStage and ensures that it is brought ot the front of all stages.
+     * Shows the application aboutStage and ensures that it is brought at the front of all stages.
      */
     private void showAboutStage() {
         if (aboutStage != null) {
@@ -129,10 +162,21 @@ public class Main extends Application {
         }
     }
 
-    private void showPrefStage() {
+    /**
+     * Shows the application prefStage and ensures that it is brought at the front of all stages.
+     */
+    private void showSetupStage() {
         if (prefStage != null) {
             prefStage.show();
             prefStage.toFront();
+        }
+    }
+
+    private void showLoggedInStage() throws IOException {
+        if (prefStage != null) {
+            Parent prefParent = FXMLLoader.load(getClass().getResource("/fxml/setup3.fxml"));
+            Scene prefScene = new Scene(prefParent);
+            prefStage.setScene(prefScene);
         }
     }
 

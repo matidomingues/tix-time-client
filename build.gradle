@@ -84,7 +84,7 @@ apply plugin: 'javafx-gradle-plugin'
 
 jfx {
     // minimal requirement for jfxJar-task
-    mainClass = 'com.github.tix_measurements.time.client.ui.Main'
+    mainClass = 'com.github.tix_measurements.time.client.Main'
 
     // minimal requirement for jfxNative-task
     vendor = 'YourName'

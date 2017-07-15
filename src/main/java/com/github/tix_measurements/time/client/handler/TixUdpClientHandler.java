@@ -1,6 +1,6 @@
 package com.github.tix_measurements.time.client.handler;
 
-import com.github.tix_measurements.time.client.TixTimeClient;
+import com.github.tix_measurements.time.client.reporting.Reporter;
 import com.github.tix_measurements.time.core.data.TixPacket;
 import com.github.tix_measurements.time.core.data.TixPacketType;
 import com.github.tix_measurements.time.core.util.TixCoreUtils;
@@ -11,22 +11,17 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 
-import static com.github.tix_measurements.time.client.TixTimeClient.getTempFile;
+import static com.github.tix_measurements.time.client.reporting.Reporter.getTempFile;
 
 public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
 
     private final Logger logger = LogManager.getLogger();
-    private final InetSocketAddress fromAddress;
-    private final InetSocketAddress toAddress;
 
-    public TixUdpClientHandler(InetSocketAddress fromAddress, InetSocketAddress toAddress) {
-        this.fromAddress = fromAddress;
-        this.toAddress = toAddress;
+    public TixUdpClientHandler() {
     }
 
     @Override
@@ -54,7 +49,7 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
         try {
             if (packet.getType() == TixPacketType.LONG) {
 
-                TixTimeClient.setLongPacketReceived(true);
+                Reporter.setLongPacketReceived(true);
 
             } else if (packet.getFinalTimestamp() > 0) {
 

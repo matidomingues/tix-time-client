@@ -1,5 +1,6 @@
 package com.github.tix_measurements.time.client.ui;
 
+import com.github.tix_measurements.time.client.Main;
 import com.github.tix_measurements.time.core.util.TixCoreUtils;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -26,7 +27,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyPair;
 import java.util.Base64;
-import java.util.prefs.Preferences;
 
 public class Setup2Controller {
 
@@ -41,7 +41,6 @@ public class Setup2Controller {
 
     @FXML
     private void createInstallation() throws IOException, InterruptedException {
-        Preferences prefs = Preferences.userRoot().node("/com/tix/client");
         try {
             SSLContext sslContext = new SSLContextBuilder()
                     .loadTrustMaterial(null, (certificate, authType) -> true).build();
@@ -51,11 +50,11 @@ public class Setup2Controller {
                     .setSSLHostnameVerifier(new NoopHostnameVerifier())
                     .build();
 
-            final int userID = prefs.getInt("userID", 0);
+            final int userID = Main.preferences.getInt("userID", 0);
             final byte[] keyPairBytes = SerializationUtils.serialize(TixCoreUtils.NEW_KEY_PAIR.get());
-            prefs.putByteArray("keyPair", keyPairBytes);
+            Main.preferences.putByteArray("keyPair", keyPairBytes);
             final KeyPair keyPair = SerializationUtils.deserialize(keyPairBytes);
-            final String token = prefs.get("token", null);
+            final String token = Main.preferences.get("token", null);
             final String installationInput = installationName.getText();
 
             if (userID != 0 && keyPair != null && token != null && installationInput != null) {
@@ -84,17 +83,14 @@ public class Setup2Controller {
                     String entity = EntityUtils.toString(response.getEntity());
                     JSONObject responseBodyJson = new JSONObject(entity);
                     final int installationID = responseBodyJson.getInt("id");
-                    prefs.putInt("installationID", installationID);
+                    Main.preferences.putInt("installationID", installationID);
+                    Main.preferences.put("installationName", installationName.getText());
+
+                    Main.startReporting();
+
                     try {
-
-                        // Start main client
-                        //new TixTimeClient(TixTimeClient.DEFAULT_SERVER_ADDRESS,TixTimeClient.DEFAULT_CLIENT_PORT);
-
                         FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/setup3.fxml"));
                         Parent root = loader.load();
-                        Setup3Controller setup3Controller = loader.getController();
-                        setup3Controller.setInstallationName(installationName.getText());
-                        setup3Controller.setUsername(prefs.get("username"," "));
                         createInstallationButton.getScene().setRoot(root);
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -107,6 +103,7 @@ public class Setup2Controller {
             System.out.println("could not connect " + ex);
         }
     }
+
     @FXML
     private void help() {
         try {
@@ -117,10 +114,12 @@ public class Setup2Controller {
             e1.printStackTrace();
         }
     }
+
     @FXML
     private void cancel() {
         closeWindow(cancelLink);
     }
+
     private void closeWindow(Hyperlink link) {
         link.getScene().getWindow().hide();
     }

@@ -1,5 +1,6 @@
 package com.github.tix_measurements.time.client.ui;
 
+import com.github.tix_measurements.time.client.Main;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.text.Text;
@@ -20,6 +21,11 @@ public class Setup3Controller {
     @FXML
     private Button closeSetupButton;
 
+    @FXML
+    public void initialize(){
+        setUsername(Main.preferences.get("username", " "));
+        setInstallationName(Main.preferences.get("installationName", ""));
+    }
 
     @FXML
     public void setUsername(String name) {
@@ -32,9 +38,7 @@ public class Setup3Controller {
     }
 
     @FXML
-    private void closeSetup() {
-        closeWindow(closeSetupButton);
-    }
+    private void closeSetup() { closeWindow(closeSetupButton); }
 
     @FXML
     private void help() {
