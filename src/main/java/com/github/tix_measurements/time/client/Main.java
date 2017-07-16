@@ -18,7 +18,7 @@ import java.util.prefs.Preferences;
 public class Main extends Application {
 
     public static Reporter reporter;
-    public static Preferences preferences = Preferences.userRoot().node("/com/tix/client9");
+    public static Preferences preferences = Preferences.userRoot().node("/com/tix/client");
 
     // application stage is stored so that it can be shown and hidden based on system tray icon operations.
     private Stage aboutStage;
