@@ -26,13 +26,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.KeyPair;
+import java.util.Enumeration;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executors;
@@ -167,7 +166,20 @@ public class Reporter extends Service<Void> {
         }, delay, period);
     }
 
-    private InetSocketAddress getClientAddress(int clientPort) throws UnknownHostException {
+    private InetSocketAddress getClientAddress(int clientPort) throws UnknownHostException, SocketException {
+        Enumeration<NetworkInterface> nie = NetworkInterface.getNetworkInterfaces();
+        while (nie.hasMoreElements()) {
+            NetworkInterface ni = nie.nextElement();
+            if (ni.isUp() && !ni.isVirtual() && !ni.isLoopback()) {
+                Enumeration<InetAddress> iae = ni.getInetAddresses();
+                while (iae.hasMoreElements()) {
+                    InetAddress ia = iae.nextElement();
+                    if (!ia.isLoopbackAddress()) {
+                        return new InetSocketAddress(ia, clientPort);
+                    }
+                }
+            }
+        }
         return new InetSocketAddress(InetAddress.getLocalHost(), clientPort);
     }
 
