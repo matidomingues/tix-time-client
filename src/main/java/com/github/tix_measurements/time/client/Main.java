@@ -8,18 +8,14 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import org.apache.commons.codec.binary.Base64;
-
 import javax.imageio.ImageIO;
-import javax.swing.*;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.prefs.Preferences;
 
 public class Main extends Application {
 
     public static Reporter reporter;
-    public static Preferences preferences = Preferences.userRoot().node("/com/tix/client");
+    public static Preferences preferences = Preferences.userRoot().node("/com/tix/client50");
 
     // application stage is stored so that it can be shown and hidden based on system tray icon operations.
     private Stage aboutStage;

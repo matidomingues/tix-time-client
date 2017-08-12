@@ -40,8 +40,8 @@ public class Setup1Controller {
 
     @FXML
     private void connect() throws IOException, InterruptedException {
-        String emailInput = email.getText();
-        String passwordInput = password.getText();
+        String emailInput = email.getText().trim().replace("\"","\\\"");
+        String passwordInput = password.getText().trim().replace("\"","\\\"");
         if (emailInput.isEmpty() || passwordInput.isEmpty()) {
             status.setText("Debe completar ambos campos");
         } else {
@@ -83,7 +83,7 @@ public class Setup1Controller {
                     }
 
                     // login succeeded
-                    Main.preferences.put("username", emailInput.trim());
+                    Main.preferences.put("username", emailInput);
                     try {
                         Parent page = FXMLLoader.load(getClass().getResource("/fxml/setup2.fxml"));
                         connectButton.getScene().setRoot(page);

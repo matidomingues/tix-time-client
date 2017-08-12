@@ -72,7 +72,7 @@ public class Reporter extends Service<Void> {
         MAX_UDP_PACKET_SIZE = 4096 + 1024;
         LONG_PACKET_MAX_RETRIES = 5;
 
-        PREFERENCES_NODE = "/com/tix/client";
+        PREFERENCES_NODE = "/com/tix/client50";
         FILE_NAME = "tempfile";
         FILE_EXTENSION = ".tix";
 

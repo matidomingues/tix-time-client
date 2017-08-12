@@ -55,7 +55,7 @@ public class Setup2Controller {
             Main.preferences.putByteArray("keyPair", keyPairBytes);
             final KeyPair keyPair = SerializationUtils.deserialize(keyPairBytes);
             final String token = Main.preferences.get("token", null);
-            final String installationInput = installationName.getText();
+            final String installationInput = installationName.getText().trim().replace("\"","\\\"");
 
             if (userID != 0 && keyPair != null && token != null && installationInput != null) {
 
@@ -63,7 +63,6 @@ public class Setup2Controller {
 
                 byte[] pubBytes = Base64.getEncoder().encode(keyPair.getPublic().getEncoded());
                 String publicString = new String(pubBytes);
-                System.out.println(publicString);
 
                 String json = "{\"name\": \"" + installationInput + "\",\"publickey\": \"" + publicString + "\"}";
                 StringEntity params = new StringEntity(json, org.apache.http.entity.ContentType.APPLICATION_JSON);
@@ -84,7 +83,7 @@ public class Setup2Controller {
                     JSONObject responseBodyJson = new JSONObject(entity);
                     final int installationID = responseBodyJson.getInt("id");
                     Main.preferences.putInt("installationID", installationID);
-                    Main.preferences.put("installationName", installationName.getText());
+                    Main.preferences.put("installationName", installationInput);
 
                     Main.startReporting();
 
