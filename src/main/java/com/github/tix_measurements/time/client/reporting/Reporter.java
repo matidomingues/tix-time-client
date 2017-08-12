@@ -27,10 +27,12 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.net.*;
+import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.KeyPair;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -166,17 +168,45 @@ public class Reporter extends Service<Void> {
         }, delay, period);
     }
 
-    private InetSocketAddress getClientAddress(int clientPort) throws UnknownHostException, SocketException {
-        Enumeration<NetworkInterface> nie = NetworkInterface.getNetworkInterfaces();
-        while (nie.hasMoreElements()) {
-            NetworkInterface ni = nie.nextElement();
-            if (ni.isUp() && !ni.isVirtual() && !ni.isLoopback()) {
-                Enumeration<InetAddress> iae = ni.getInetAddresses();
-                while (iae.hasMoreElements()) {
-                    InetAddress ia = iae.nextElement();
-                    if (!ia.isLoopbackAddress()) {
-                        return new InetSocketAddress(ia, clientPort);
-                    }
+    private InetSocketAddress getClientAddress(int clientPort) throws IOException {
+        // Adapted from https://stackoverflow.com/questions/8462498/how-to-determine-internet-network-interface-in-java
+        // iterate over the network interfaces known to java
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        for (NetworkInterface interface_ : Collections.list(interfaces)) {
+            // we shouldn't care about loopback addresses
+            if (interface_.isLoopback())
+                continue;
+
+            // if you don't expect the interface to be up you can skip this
+            // though it would question the usability of the rest of the code
+            if (!interface_.isUp())
+                continue;
+
+            // iterate over the addresses associated with the interface
+            Enumeration<InetAddress> addresses = interface_.getInetAddresses();
+            for (InetAddress address : Collections.list(addresses)) {
+                // use a timeout big enough for your needs
+                if (!address.isReachable(3000))
+                    continue;
+
+                // java 7's try-with-resources statement, so that
+                // we close the socket immediately after use
+                try (SocketChannel socket = SocketChannel.open()) {
+                    // again, use a big enough timeout
+                    socket.socket().setSoTimeout(3000);
+
+                    // bind the socket to your local interface
+                    socket.bind(new InetSocketAddress(address, 8080));
+
+                    // try to connect to *somewhere*
+                    socket.connect(new InetSocketAddress("tix.innova-red.net", 80));
+
+                    System.out.format("ni: %s, ia: %s\n", interface_, address);
+
+                    return new InetSocketAddress(address,clientPort);
+
+                } catch (IOException ex) {
+                    continue;
                 }
             }
         }
