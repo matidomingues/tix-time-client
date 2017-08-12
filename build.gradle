@@ -81,11 +81,10 @@ buildscript {
 
 apply plugin: 'javafx-gradle-plugin'
 
-
 jfx {
-    // minimal requirement for jfxJar-task
     mainClass = 'com.github.tix_measurements.time.client.Main'
-
-    // minimal requirement for jfxNative-task
-    vendor = 'YourName'
+    jfxMainAppJarName = "tix-client.jar"
+    vendor = 'TiX'
+    updateExistingJar = true
+    copyAdditionalAppResourcesToJar = true
 }
