@@ -25,9 +25,9 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
         logger.entry(ctx, msg);
-        TixPacket incomingMessage = (TixPacket) msg;
+        final TixPacket incomingMessage = (TixPacket) msg;
         logger.info("Received package {} from {}", incomingMessage, incomingMessage.getFrom());
         if (incomingMessage.getReceptionTimestamp() > 0) {
             incomingMessage.setFinalTimestamp(TixCoreUtils.NANOS_OF_DAY.get());
@@ -38,7 +38,7 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+    public void exceptionCaught(final ChannelHandlerContext ctx, final Throwable cause) throws Exception {
         logger.entry(ctx, cause);
         logger.catching(cause);
         logger.error("exception caught", cause);

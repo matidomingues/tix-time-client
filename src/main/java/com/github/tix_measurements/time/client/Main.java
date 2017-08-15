@@ -8,14 +8,21 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+
 import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.util.prefs.Preferences;
 
 public class Main extends Application {
 
+    private static boolean cli = false;
+    private static String username = null;
+    private static String password = null;
+    private static String installation = null;
+    private static int port = -1;
+
     public static Reporter reporter;
-    public static Preferences preferences = Preferences.userRoot().node("/com/tix/client50");
+    public static Preferences preferences = Preferences.userRoot().node("/com/tix/client");
 
     // application stage is stored so that it can be shown and hidden based on system tray icon operations.
     private Stage aboutStage;
@@ -28,13 +35,21 @@ public class Main extends Application {
      */
     @Override
     public void start(final Stage stage) throws IOException {
-        setUIProperties(stage);
 
-        if (!installationExists()) {
-            showSetupStage();
-        } else {
+        if (cli) {
+            preferences = Preferences.userRoot().node("/com/tix/client" + installation);
+            Setup.cliLogin(username, password);
+            Setup.cliInstall(installation);
             startReporting();
-            showLoggedInStage();
+        } else {
+            setUIProperties(stage);
+
+            if (!installationExists()) {
+                showSetupStage();
+            } else {
+                startReporting();
+                showLoggedInStage();
+            }
         }
     }
 
@@ -87,6 +102,10 @@ public class Main extends Application {
             e.printStackTrace();
         }
         return (userID > 0) && (keyPair != null) && (installationID > 0);
+    }
+
+    public static int getClientPort() {
+        return port;
     }
 
     /**
@@ -176,7 +195,34 @@ public class Main extends Application {
         }
     }
 
-    public static void main(String[] args) throws IOException, java.awt.AWTException {
+    public static void main(String[] args) {
+        if (args.length > 0) {
+            cli = true;
+            try {
+                username = args[0].replace("\"", "\\\"");
+            } catch (RuntimeException e) {
+                System.err.println("Username missing.");
+                System.exit(1);
+            }
+            try {
+                password = args[1].replace("\"", "\\\"");
+            } catch (RuntimeException e) {
+                System.err.println("Password missing.");
+                System.exit(1);
+            }
+            try {
+                installation = args[2].replace("\"", "\\\"");
+            } catch (RuntimeException e) {
+                System.err.println("Installation name missing.");
+                System.exit(1);
+            }
+            try {
+                port = Integer.parseInt(args[3]);
+            } catch (RuntimeException e) {
+                System.err.println("Port number missing or cannot be parsed.");
+                System.exit(1);
+            }
+        }
         Main.launch(args);
     }
 }

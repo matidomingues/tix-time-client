@@ -26,7 +26,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.UnknownHostException;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,28 +43,23 @@ import java.util.concurrent.Executors;
 
 public class Reporter extends Service<Void> {
 
-    public static final int WORKER_THREADS;
-    public static final String SERVER_IP;
-    public static final int DEFAULT_CLIENT_PORT;
-    public static final int DEFAULT_SERVER_PORT;
-    public static final InetSocketAddress DEFAULT_SERVER_ADDRESS;
+    private static final int WORKER_THREADS;
+    private static final String SERVER_IP;
+    private static final int DEFAULT_CLIENT_PORT;
+    private static final int DEFAULT_SERVER_PORT;
+    private static final InetSocketAddress DEFAULT_SERVER_ADDRESS;
 
-    public static final int MAX_UDP_PACKET_SIZE;
-    public static final int LONG_PACKET_MAX_RETRIES; /* how many times will payload with measurement data be sent after every minute */
-
-    public static final String FILE_NAME; /* file used to persist incoming message data */
-    public static final String FILE_EXTENSION;
-    private static Path tempFile;
-
-    private static final Logger logger = LogManager.getLogger();
-    private static final Timer timer = new Timer();
-
-    public static String PREFERENCES_NODE;
+    private static final int MAX_UDP_PACKET_SIZE;
+    private static final int LONG_PACKET_MAX_RETRIES; /* how many times will payload with measurement data be sent after every minute */
+    private static final String FILE_NAME; /* file used to persist incoming message data */
+    private static final String FILE_EXTENSION;
     private static final long USER_ID;
     private static final long INSTALLATION_ID;
     private static final KeyPair KEY_PAIR;
-
-    private static boolean longPacketReceived = false;
+    private static final Logger logger = LogManager.getLogger();
+    private static final Timer timer = new Timer();
+    private static boolean longPacketReceived;
+    private static Path tempFile;
 
     static {
         WORKER_THREADS = 1;
@@ -71,8 +69,8 @@ public class Reporter extends Service<Void> {
 
         MAX_UDP_PACKET_SIZE = 4096 + 1024;
         LONG_PACKET_MAX_RETRIES = 5;
+        longPacketReceived = false;
 
-        PREFERENCES_NODE = "/com/tix/client50";
         FILE_NAME = "tempfile";
         FILE_EXTENSION = ".tix";
 
@@ -168,43 +166,31 @@ public class Reporter extends Service<Void> {
         }, delay, period);
     }
 
-    private InetSocketAddress getClientAddress(int clientPort) throws IOException {
-        // Adapted from https://stackoverflow.com/questions/8462498/how-to-determine-internet-network-interface-in-java
-        // iterate over the network interfaces known to java
+    private InetSocketAddress getClientAddress() throws IOException {
+
+        int clientPort = Main.getClientPort();
+        if (clientPort == -1)
+            clientPort = DEFAULT_CLIENT_PORT;
+
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-        for (NetworkInterface interface_ : Collections.list(interfaces)) {
-            // we shouldn't care about loopback addresses
-            if (interface_.isLoopback())
+        for (NetworkInterface networkInterface : Collections.list(interfaces)) {
+
+            if (networkInterface.isLoopback() || !networkInterface.isUp())
                 continue;
 
-            // if you don't expect the interface to be up you can skip this
-            // though it would question the usability of the rest of the code
-            if (!interface_.isUp())
-                continue;
-
-            // iterate over the addresses associated with the interface
-            Enumeration<InetAddress> addresses = interface_.getInetAddresses();
+            Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
             for (InetAddress address : Collections.list(addresses)) {
-                // use a timeout big enough for your needs
                 if (!address.isReachable(3000))
                     continue;
 
-                // java 7's try-with-resources statement, so that
-                // we close the socket immediately after use
                 try (SocketChannel socket = SocketChannel.open()) {
-                    // again, use a big enough timeout
                     socket.socket().setSoTimeout(3000);
 
-                    // bind the socket to your local interface
                     socket.bind(new InetSocketAddress(address, 8080));
-
-                    // try to connect to *somewhere*
                     socket.connect(new InetSocketAddress("tix.innova-red.net", 80));
+                    logger.info("Network Interface: {}, Address: {}", networkInterface, address);
 
-                    System.out.format("ni: %s, ia: %s\n", interface_, address);
-
-                    return new InetSocketAddress(address,clientPort);
-
+                    return new InetSocketAddress(address, clientPort);
                 } catch (IOException ex) {
                     continue;
                 }
@@ -235,7 +221,7 @@ public class Reporter extends Service<Void> {
 
                 try {
                     logger.info("Setting up");
-                    InetSocketAddress clientAddress = getClientAddress(DEFAULT_CLIENT_PORT);
+                    InetSocketAddress clientAddress = getClientAddress();
                     logger.info("My Address: {}:{}", clientAddress.getAddress(), clientAddress.getPort());
 
                     tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
