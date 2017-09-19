@@ -69,22 +69,21 @@ test {
 }
 
 buildscript {
-    dependencies {
-        classpath group: 'de.dynamicfiles.projects.gradle.plugins', name: 'javafx-gradle-plugin', version: "8.8.2"
-    }
     repositories {
         mavenLocal()
         mavenCentral()
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
     }
+    dependencies {
+        classpath 'no.tornado:fxlauncher-gradle-plugin:1.0.17'
+    }
 }
 
-apply plugin: 'javafx-gradle-plugin'
+apply plugin: 'no.tornado.fxlauncher'
 
-jfx {
-    mainClass = 'com.github.tix_measurements.time.client.Main'
-    jfxMainAppJarName = "tix-client.jar"
-    vendor = 'TiX'
-    updateExistingJar = true
-    copyAdditionalAppResourcesToJar = true
+fxlauncher {
+    applicationVendor 'TiX'
+    applicationUrl 'https://tix.innova-red.net/downloads/assets/'
+    applicationMainClass 'com.github.tix_measurements.time.client.Main'
+    deployTarget 'jperezcu@tix.innova-red.net:/var/www/downloads/assets'
 }

@@ -134,7 +134,7 @@ public class Main extends Application {
 
             // if the user selects the default menu item (which includes the app name),
             // show the main app aboutStage.
-            java.awt.MenuItem openItem = new java.awt.MenuItem("Sobre TiX");
+            java.awt.MenuItem openItem = new java.awt.MenuItem("Sobre TiX 2");
             openItem.addActionListener(event -> Platform.runLater(this::showAboutStage));
 
             java.awt.MenuItem openPrefs = new java.awt.MenuItem("Preferencias");
