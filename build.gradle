@@ -86,4 +86,5 @@ fxlauncher {
     applicationUrl 'https://tix.innova-red.net/downloads/assets/'
     applicationMainClass 'com.github.tix_measurements.time.client.Main'
     deployTarget 'jperezcu@tix.innova-red.net:/var/www/downloads/assets'
+    cacheDir 'USERLIB/tix-time-client'
 }
