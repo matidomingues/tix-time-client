@@ -79,6 +79,7 @@ buildscript {
     }
 }
 
+
 apply plugin: 'no.tornado.fxlauncher'
 
 fxlauncher {

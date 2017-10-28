@@ -131,10 +131,11 @@ public class Setup {
         return true;
     }
 
-    public static boolean cliInstall(final String installation) {
+    public static boolean cliInstall(final String installation, final int port) {
         final int responseStatusCode = install(installation);
         if (responseStatusCode != 200)
             System.exit(1);
+        Main.preferences.putInt("clientPort", port);
         return true;
     }
 

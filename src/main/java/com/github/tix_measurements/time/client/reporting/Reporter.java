@@ -1,6 +1,5 @@
 package com.github.tix_measurements.time.client.reporting;
 
-import com.github.tix_measurements.time.client.Main;
 import com.github.tix_measurements.time.client.handler.TixUdpClientHandler;
 import com.github.tix_measurements.time.core.data.TixDataPacket;
 import com.github.tix_measurements.time.core.data.TixPacket;
@@ -18,9 +17,6 @@ import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
-import javafx.concurrent.Service;
-import javafx.concurrent.Task;
-import org.apache.commons.lang3.SerializationUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -41,23 +37,16 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executors;
 
-public class Reporter extends Service<Void> {
+public class Reporter {
 
     private static final int WORKER_THREADS;
     private static final String SERVER_IP;
     private static final int DEFAULT_CLIENT_PORT;
     private static final int DEFAULT_SERVER_PORT;
-    private static final InetSocketAddress DEFAULT_SERVER_ADDRESS;
-
     private static final int MAX_UDP_PACKET_SIZE;
     private static final int LONG_PACKET_MAX_RETRIES; /* how many times will payload with measurement data be sent after every minute */
     private static final String FILE_NAME; /* file used to persist incoming message data */
     private static final String FILE_EXTENSION;
-    private static final long USER_ID;
-    private static final long INSTALLATION_ID;
-    private static final KeyPair KEY_PAIR;
-    private static final Logger logger = LogManager.getLogger();
-    private static final Timer timer = new Timer();
     private static boolean longPacketReceived;
     private static Path tempFile;
 
@@ -73,18 +62,21 @@ public class Reporter extends Service<Void> {
 
         FILE_NAME = "tempfile";
         FILE_EXTENSION = ".tix";
+    }
 
-        USER_ID = Main.preferences.getLong("userID", 0L);
-        INSTALLATION_ID = Main.preferences.getLong("installationID", 0L);
-        final byte[] keyPairBytes = Main.preferences.getByteArray("keyPair", null);
-        try {
-            KEY_PAIR = SerializationUtils.deserialize(keyPairBytes);
-        } catch (Exception e) {
-            logger.catching(e);
-            logger.fatal("Could not read existing keyPair");
-            throw new Error();
-        }
+    private final int CLIENT_PORT;
+    private final InetSocketAddress DEFAULT_SERVER_ADDRESS;
+    private final long USER_ID;
+    private final long INSTALLATION_ID;
+    private final KeyPair KEY_PAIR;
+    private final Logger logger = LogManager.getLogger();
+    private final Timer timer = new Timer();
 
+    public Reporter(final long USER_ID, final long INSTALLATION_ID, final KeyPair KEY_PAIR, final int CLIENT_PORT) {
+        this.USER_ID = USER_ID;
+        this.INSTALLATION_ID = INSTALLATION_ID;
+        this.KEY_PAIR = KEY_PAIR;
+        this.CLIENT_PORT = CLIENT_PORT > 0 ? CLIENT_PORT : DEFAULT_CLIENT_PORT;
         try {
             DEFAULT_SERVER_ADDRESS = new InetSocketAddress(SERVER_IP, DEFAULT_SERVER_PORT);
         } catch (Exception e) {
@@ -92,10 +84,6 @@ public class Reporter extends Service<Void> {
             logger.fatal("Could not initialize the default server address");
             throw new Error();
         }
-    }
-
-    public static void main(String[] args) {
-        new Reporter();
     }
 
     public static void setLongPacketReceived(boolean value) {
@@ -168,10 +156,6 @@ public class Reporter extends Service<Void> {
 
     private InetSocketAddress getClientAddress() throws IOException {
 
-        int clientPort = Main.getClientPort();
-        if (clientPort == -1)
-            clientPort = DEFAULT_CLIENT_PORT;
-
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
         for (NetworkInterface networkInterface : Collections.list(interfaces)) {
 
@@ -190,87 +174,83 @@ public class Reporter extends Service<Void> {
                     socket.connect(new InetSocketAddress("tix.innova-red.net", 80));
                     logger.info("Network Interface: {}, Address: {}", networkInterface, address);
 
-                    return new InetSocketAddress(address, clientPort);
+                    return new InetSocketAddress(address, CLIENT_PORT);
                 } catch (IOException ex) {
                     continue;
                 }
             }
         }
-        return new InetSocketAddress(InetAddress.getLocalHost(), clientPort);
+        return new InetSocketAddress(InetAddress.getLocalHost(), CLIENT_PORT);
     }
 
-    @Override
-    protected Task<Void> createTask() {
-        return new Task<Void>() {
-            protected Void call() {
-                logger.info("Starting Client");
-                logger.info("Server Address: {}:{}", DEFAULT_SERVER_ADDRESS.getHostName(), DEFAULT_SERVER_ADDRESS.getPort());
+    public Void run() {
+        logger.info("Starting Client");
+        logger.info("Server Address: {}:{}", DEFAULT_SERVER_ADDRESS.getHostName(), DEFAULT_SERVER_ADDRESS.getPort());
 
-                EventLoopGroup workerGroup;
-                Class<? extends Channel> datagramChannelClass;
-                if (Epoll.isAvailable()) {
-                    logger.info("epoll available");
-                    workerGroup = new EpollEventLoopGroup(WORKER_THREADS);
-                    datagramChannelClass = EpollDatagramChannel.class;
-                } else {
-                    logger.info("epoll unavailable");
-                    logger.warn("epoll unavailable performance may be reduced due to single thread scheme.");
-                    workerGroup = new NioEventLoopGroup(WORKER_THREADS, Executors.privilegedThreadFactory());
-                    datagramChannelClass = NioDatagramChannel.class;
-                }
+        EventLoopGroup workerGroup;
+        Class<? extends Channel> datagramChannelClass;
+        if (Epoll.isAvailable()) {
+            logger.info("epoll available");
+            workerGroup = new EpollEventLoopGroup(WORKER_THREADS);
+            datagramChannelClass = EpollDatagramChannel.class;
+        } else {
+            logger.info("epoll unavailable");
+            logger.warn("epoll unavailable performance may be reduced due to single thread scheme.");
+            workerGroup = new NioEventLoopGroup(WORKER_THREADS, Executors.privilegedThreadFactory());
+            datagramChannelClass = NioDatagramChannel.class;
+        }
 
-                try {
-                    logger.info("Setting up");
-                    InetSocketAddress clientAddress = getClientAddress();
-                    logger.info("My Address: {}:{}", clientAddress.getAddress(), clientAddress.getPort());
+        try {
+            logger.info("Setting up");
+            InetSocketAddress clientAddress = getClientAddress();
+            logger.info("My Address: {}:{}", clientAddress.getAddress(), clientAddress.getPort());
 
-                    tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
-                    System.out.println(tempFile.toString());
-                    tempFile.toFile().deleteOnExit();
+            tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
+            System.out.println(tempFile.toString());
+            tempFile.toFile().deleteOnExit();
 
-                    Bootstrap b = new Bootstrap();
-                    b.group(workerGroup)
-                            .channel(datagramChannelClass)
-                            .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-                            .option(ChannelOption.SO_RCVBUF, MAX_UDP_PACKET_SIZE)
-                            .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(MAX_UDP_PACKET_SIZE))
-                            .handler(new ChannelInitializer<DatagramChannel>() {
-                                @Override
-                                protected void initChannel(DatagramChannel ch)
-                                        throws Exception {
-                                    ch.pipeline().addLast(new TixMessageDecoder());
-                                    ch.pipeline().addLast(new TixUdpClientHandler());
-                                    ch.pipeline().addLast(new TixMessageEncoder());
-                                }
-                            });
-                    if (Epoll.isAvailable()) {
-                        b.option(EpollChannelOption.SO_REUSEPORT, true);
-                    }
-                    logger.info("Binding into port {}", clientAddress.getPort());
-                    Channel channel = b.bind(clientAddress).sync().channel();
-
-                    writePackets(0, 1000, clientAddress, DEFAULT_SERVER_ADDRESS, channel, tempFile);
-
-                    ChannelFuture future = channel.closeFuture().await();
-                    if (!future.isSuccess()) {
-                        logger.error("Error while transmitting");
-                    }
-                } catch (InterruptedException e) {
-                    logger.fatal("Interrupted", e);
-                    logger.catching(Level.FATAL, e);
-                } catch (UnknownHostException e) {
-                    logger.fatal("Cannot retrieve local host address", e);
-                    logger.catching(Level.FATAL, e);
-                } catch (IOException e) {
-                    logger.fatal("Cannot persist incoming message data", e);
-                    logger.catching(Level.FATAL, e);
-                } finally {
-                    logger.info("Shutting down");
-                    timer.cancel();
-                    workerGroup.shutdownGracefully();
-                }
-                return null;
+            Bootstrap b = new Bootstrap();
+            b.group(workerGroup)
+                    .channel(datagramChannelClass)
+                    .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
+                    .option(ChannelOption.SO_RCVBUF, MAX_UDP_PACKET_SIZE)
+                    .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(MAX_UDP_PACKET_SIZE))
+                    .handler(new ChannelInitializer<DatagramChannel>() {
+                        @Override
+                        protected void initChannel(DatagramChannel ch)
+                                throws Exception {
+                            ch.pipeline().addLast(new TixMessageDecoder());
+                            ch.pipeline().addLast(new TixUdpClientHandler());
+                            ch.pipeline().addLast(new TixMessageEncoder());
+                        }
+                    });
+            if (Epoll.isAvailable()) {
+                b.option(EpollChannelOption.SO_REUSEPORT, true);
             }
-        };
+            logger.info("Binding into port {}", clientAddress.getPort());
+            Channel channel = b.bind(clientAddress).sync().channel();
+
+            writePackets(0, 1000, clientAddress, DEFAULT_SERVER_ADDRESS, channel, tempFile);
+
+            ChannelFuture future = channel.closeFuture().await();
+            if (!future.isSuccess()) {
+                logger.error("Error while transmitting");
+            }
+        } catch (InterruptedException e) {
+            logger.fatal("Interrupted", e);
+            logger.catching(Level.FATAL, e);
+        } catch (UnknownHostException e) {
+            logger.fatal("Cannot retrieve local host address", e);
+            logger.catching(Level.FATAL, e);
+        } catch (IOException e) {
+            logger.fatal("Cannot persist incoming message data", e);
+            logger.catching(Level.FATAL, e);
+        } finally {
+            logger.info("Shutting down");
+            timer.cancel();
+            workerGroup.shutdownGracefully();
+        }
+        return null;
     }
+
 }

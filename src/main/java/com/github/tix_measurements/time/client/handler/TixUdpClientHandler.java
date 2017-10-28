@@ -15,8 +15,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 
-import static com.github.tix_measurements.time.client.reporting.Reporter.getTempFile;
-
 public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
 
     private final Logger logger = LogManager.getLogger();
@@ -79,7 +77,7 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
                 outputStream.write(longBuffer.putLong(packet.getFinalTimestamp()).array());
                 longBuffer.clear();
 
-                Files.write(getTempFile(), outputStream.toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE, StandardOpenOption.SYNC);
+                Files.write(Reporter.getTempFile(), outputStream.toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE, StandardOpenOption.SYNC);
             }
 
         } catch (IOException e) {
