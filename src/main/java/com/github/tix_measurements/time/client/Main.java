@@ -30,7 +30,6 @@ public class Main extends Application {
     private Stage prefStage;
 
     public static void main(String[] args) {
-        System.out.println("pase por el MAIN!!!!!!");
         if (args.length > 0) {
             cli = true;
             try {
@@ -64,7 +63,6 @@ public class Main extends Application {
         } else {
             Main.launch(args);
         }
-        System.out.println("CLI O GUI???? "+ (cli?"cli":"gui"));
     }
 
     /**
