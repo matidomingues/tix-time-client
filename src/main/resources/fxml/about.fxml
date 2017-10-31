@@ -13,7 +13,7 @@
         <Insets bottom="10" left="25" right="25" top="25"/>
     </padding>
     <Button fx:id="getUpdatesButton" mnemonicParsing="false" onAction="#openWebsite" prefWidth="159.0"
-            text="Buscar actualizaciones" GridPane.rowIndex="1">
+            text="Ver reportes" GridPane.rowIndex="1">
         <GridPane.margin>
             <Insets top="30.0"/>
         </GridPane.margin>
