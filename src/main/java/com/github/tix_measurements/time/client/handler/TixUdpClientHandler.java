@@ -19,7 +19,10 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
 
     private final Logger logger = LogManager.getLogger();
 
-    public TixUdpClientHandler() {
+    private final Reporter reporter;
+
+    public TixUdpClientHandler(Reporter reporter) {
+        this.reporter = reporter;
     }
 
     @Override
@@ -77,7 +80,7 @@ public class TixUdpClientHandler extends ChannelInboundHandlerAdapter {
                 outputStream.write(longBuffer.putLong(packet.getFinalTimestamp()).array());
                 longBuffer.clear();
 
-                Files.write(Reporter.getTempFile(), outputStream.toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE, StandardOpenOption.SYNC);
+                Files.write(reporter.getTempFile(), outputStream.toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE, StandardOpenOption.SYNC);
             }
 
         } catch (IOException e) {

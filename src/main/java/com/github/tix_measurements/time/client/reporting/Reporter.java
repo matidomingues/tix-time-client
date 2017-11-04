@@ -45,10 +45,9 @@ public class Reporter {
     private static final int DEFAULT_SERVER_PORT;
     private static final int MAX_UDP_PACKET_SIZE;
     private static final int LONG_PACKET_MAX_RETRIES; /* how many times will payload with measurement data be sent after every minute */
-    private static final String FILE_NAME; /* file used to persist incoming message data */
     private static final String FILE_EXTENSION;
     private static boolean longPacketReceived;
-    private static Path tempFile;
+    private Path tempFile;
 
     static {
         WORKER_THREADS = 1;
@@ -60,10 +59,10 @@ public class Reporter {
         LONG_PACKET_MAX_RETRIES = 5;
         longPacketReceived = false;
 
-        FILE_NAME = "tempfile";
+
         FILE_EXTENSION = ".tix";
     }
-
+    private String FILE_NAME = "tempfile";
     private final int CLIENT_PORT;
     private final InetSocketAddress DEFAULT_SERVER_ADDRESS;
     private final long USER_ID;
@@ -90,7 +89,7 @@ public class Reporter {
         longPacketReceived = value;
     }
 
-    public static Path getTempFile() {
+    public Path getTempFile() {
         return tempFile;
     }
 
@@ -120,6 +119,7 @@ public class Reporter {
                     if (mostRecentData == null || mostRecentData.length < 1) {
                         logger.error("No measurements recorded in the last minute");
                     } else {
+                        logger.error("There is data to read " + mostRecentData.length);
                         signature = TixCoreUtils.sign(mostRecentData, KEY_PAIR);
                         longPacketWithData = new TixDataPacket(clientAddress, serverAddress, TixCoreUtils.NANOS_OF_DAY.get(), USER_ID, INSTALLATION_ID, KEY_PAIR.getPublic().getEncoded(), mostRecentData, signature);
                         channel.writeAndFlush(longPacketWithData);
@@ -204,7 +204,7 @@ public class Reporter {
             logger.info("Setting up");
             InetSocketAddress clientAddress = getClientAddress();
             logger.info("My Address: {}:{}", clientAddress.getAddress(), clientAddress.getPort());
-
+            FILE_NAME = FILE_NAME + "_" + CLIENT_PORT;
             tempFile = Files.createTempFile(FILE_NAME, FILE_EXTENSION);
             System.out.println(tempFile.toString());
             tempFile.toFile().deleteOnExit();
@@ -220,7 +220,7 @@ public class Reporter {
                         protected void initChannel(DatagramChannel ch)
                                 throws Exception {
                             ch.pipeline().addLast(new TixMessageDecoder());
-                            ch.pipeline().addLast(new TixUdpClientHandler());
+                            ch.pipeline().addLast(new TixUdpClientHandler(Reporter.this));
                             ch.pipeline().addLast(new TixMessageEncoder());
                         }
                     });
