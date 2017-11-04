@@ -1,5 +1,6 @@
 package com.github.tix_measurements.time.client.ui;
 
+import com.github.tix_measurements.time.client.InstallationDetails;
 import com.github.tix_measurements.time.client.Main;
 import com.github.tix_measurements.time.client.Setup;
 import javafx.fxml.FXML;
@@ -32,11 +33,8 @@ public class Setup2Controller {
     private void createInstallation() {
         final String installationInput = installationName.getText().trim().replace("\"", "\\\"");
         if (installationInput != null) {
-            final int responseStatusCode = Setup.install(installationInput);
-            if (responseStatusCode == 401) {
-                // new installation details are incorrect
-                status.setText("Verifique los datos ingresados");
-            } else if (responseStatusCode == 200) {
+            final InstallationDetails responseStatusCode = Setup.install(installationInput, "token", 12);
+
                 Main.startReporting();
                 try {
                     FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/setup3.fxml"));
@@ -45,10 +43,7 @@ public class Setup2Controller {
                 } catch (IOException e) {
                     logger.error("Cannot load setup 3 screen");
                 }
-            } else {
-                status.setText("Falló la conexión con el servidor");
-                logger.error("Cannot connect to server when trying to create new installation");
-            }
+
         }
     }
 

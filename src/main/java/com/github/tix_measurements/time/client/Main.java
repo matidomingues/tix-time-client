@@ -14,6 +14,7 @@ import org.apache.commons.lang3.SerializationUtils;
 import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.security.KeyPair;
+import java.util.Set;
 import java.util.prefs.Preferences;
 
 public class Main extends Application {

@@ -9,12 +9,14 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.util.ByteArrayBuffer;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONObject;
 
 import javax.net.ssl.SSLContext;
+import java.security.Key;
 import java.security.KeyPair;
 import java.util.Base64;
 
@@ -22,8 +24,9 @@ public class Setup {
 
     private static final Logger logger = LogManager.getLogger();
 
-    public static int login(final String username, final String password) {
+    public static LoginDetails login(String username, String password) {
         try {
+            LoginDetails loginDetails = new LoginDetails();
             final SSLContext sslContext = new SSLContextBuilder()
                     .loadTrustMaterial(null, (certificate, authType) -> true).build();
 
@@ -37,7 +40,6 @@ public class Setup {
             final StringEntity params = new StringEntity(json, org.apache.http.entity.ContentType.APPLICATION_JSON);
             request.setHeader("Content-Type", "application/json");
             request.setEntity(params);
-
             final HttpResponse response = client.execute(request);
             int responseStatusCode = response.getStatusLine().getStatusCode();
             if (responseStatusCode == 401) {
@@ -46,31 +48,32 @@ public class Setup {
             } else if (responseStatusCode == 200) {
                 try {
                     logger.info("Log in succeeded");
-                    Main.preferences.put("username", username);
+                    loginDetails.username = username;
 
                     final String entity = EntityUtils.toString(response.getEntity());
                     final JSONObject responseBodyJson = new JSONObject(entity);
 
                     final int userID = responseBodyJson.getInt("id");
-                    Main.preferences.putInt("userID", userID);
+                    loginDetails.userId = userID;
                     final String token = responseBodyJson.getString("token");
-                    Main.preferences.put("token", token);
+                    loginDetails.token = token;
                 } catch (Exception e) {
                     logger.error("API responded to login with unexpected format " + e);
                 }
             } else {
                 logger.error("Connection to server failed");
             }
-            return responseStatusCode;
+            return loginDetails;
 
         } catch (Exception ex) {
             logger.error("could not connect " + ex);
         }
-        return 0;
+        return null;
     }
 
-    public static int install(final String installation) {
+    public static InstallationDetails install(final String installation, String token, int userID) {
         try {
+            InstallationDetails details = new InstallationDetails();
             final SSLContext sslContext = new SSLContextBuilder()
                     .loadTrustMaterial(null, (certificate, authType) -> true).build();
 
@@ -79,11 +82,9 @@ public class Setup {
                     .setSSLHostnameVerifier(new NoopHostnameVerifier())
                     .build();
 
-            final int userID = Main.preferences.getInt("userID", 0);
             final byte[] keyPairBytes = SerializationUtils.serialize(TixCoreUtils.NEW_KEY_PAIR.get());
-            Main.preferences.putByteArray("keyPair", keyPairBytes);
             final KeyPair keyPair = SerializationUtils.deserialize(keyPairBytes);
-            final String token = Main.preferences.get("token", null);
+            details.keyPair = keyPair;
             final String installationInput = installation.trim().replace("\"", "\\\"");
 
             if (userID != 0 && keyPair != null && token != null && installationInput != null) {
@@ -111,9 +112,8 @@ public class Setup {
                     final String entity = EntityUtils.toString(response.getEntity());
                     final JSONObject responseBodyJson = new JSONObject(entity);
                     final int installationID = responseBodyJson.getInt("id");
-                    Main.preferences.putInt("installationID", installationID);
-                    Main.preferences.put("installationName", installationInput);
-                    return responseStatusCode;
+                    details.installationId = installationID;
+                    return details;
                 } else {
                     logger.error("Server connection failed when creating installation.");
                 }
@@ -121,20 +121,16 @@ public class Setup {
         } catch (Exception ex) {
             logger.error("could not connect " + ex);
         }
-        return 0;
+        return null;
     }
 
     public static boolean cliLogin(final String username, final String password) {
-        final int responseStatusCode = login(username, password);
-        if (responseStatusCode != 200)
-            System.exit(1);
+        final LoginDetails responseStatusCode = login(username, password);
         return true;
     }
 
     public static boolean cliInstall(final String installation, final int port) {
-        final int responseStatusCode = install(installation);
-        if (responseStatusCode != 200)
-            System.exit(1);
+        final InstallationDetails responseStatusCode = install(installation, "token", 12);
         Main.preferences.putInt("clientPort", port);
         return true;
     }

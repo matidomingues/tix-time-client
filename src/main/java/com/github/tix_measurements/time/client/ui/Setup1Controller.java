@@ -1,5 +1,6 @@
 package com.github.tix_measurements.time.client.ui;
 
+import com.github.tix_measurements.time.client.LoginDetails;
 import com.github.tix_measurements.time.client.Setup;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -39,21 +40,15 @@ public class Setup1Controller {
         } else {
             status.setText("Iniciando sesión...");
 
-            final int responseStatusCode = Setup.login(emailInput, passwordInput);
-            if (responseStatusCode == 401) {
-                // login details are incorrect
-                status.setText("Verifique los datos ingresados");
-            } else if (responseStatusCode == 200) {
+            final LoginDetails responseStatusCode = Setup.login(emailInput, passwordInput);
+
                 try {
                     Parent page = FXMLLoader.load(getClass().getResource("/fxml/setup2.fxml"));
                     connectButton.getScene().setRoot(page);
                 } catch (IOException e) {
                     logger.error("Cannot load setup 2 screen");
                 }
-            } else {
-                status.setText("Falló la conexión con el servidor");
-                logger.error("Cannot connect to server when trying to log in");
-            }
+
         }
     }
 
